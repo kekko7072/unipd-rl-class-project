@@ -9,6 +9,7 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{hyperref}
+\usepackage{tikz}
 
 \providecommand{\theHalgorithm}{\arabic{algorithm}}
 \usepackage[accepted]{icml2021}
@@ -63,6 +64,17 @@ JoinIn shows each user a short feed of candidate activities. Before this work, t
 
 Because real user interactions cannot be collected within the class-project window, we evaluate the recommender entirely on synthetic data. A local simulator generates users, events, and contextual signals that mirror the structure of the JoinIn feed, and a ground-truth utility function not exposed to the policy assigns actions to impressions using the same reward shaping the deployed app would log. This lets us exercise the full pipeline (feature extraction, ranking, reward mapping) without touching the Firebase backend or collecting new behavioral data from real students.
 
+\section{Critical Issues}
+The project has a few inherent risks that influenced both the algorithm choice and the evaluation design:
+\begin{itemize}
+    \item \textbf{No production reward signal}: we cannot observe real swipes, joins, leaves, or reports within the class-project window, so the agent is trained and evaluated on a hand-crafted simulator. Any conclusion is conditional on that simulator's faithfulness.
+    \item \textbf{Sim-to-real gap}: the synthetic user model is a logistic function over the same features the policy sees. This bounds the achievable lift, removes feature-induced bias, and likely underestimates the noise a production deployment would face.
+    \item \textbf{Sparse and shaped feedback}: most actions in the deployed app are passes and impressions, and the reward for a join only resolves after the event happens. Long-horizon and delayed signals are outside the contextual-bandit assumption.
+    \item \textbf{Slate and position bias}: the feed shows five cards at once, so an event's outcome depends on its neighbors and on its slot. Treating each card as an independent one-step decision is a deliberate simplification.
+    \item \textbf{Privacy and policy review}: training on real interactions requires backend changes, an opt-in analytics pipeline, and a privacy-policy update. This is outside the project scope but constrains what can actually ship.
+    \item \textbf{Cold start and catalog churn}: the JoinIn event catalog turns over weekly, so the bandit must remain useful with very thin per-event history, which favors generalising features over per-arm estimates.
+\end{itemize}
+
 \section{RL Formulation}
 At each step the app sees a user $u$ and a candidate event $e$ that passed the filter. We describe the pair with a context vector
 \[
@@ -102,7 +114,7 @@ We use Contextual Thompson Sampling with a linear reward model \cite{agrawal2013
 \]
 For each candidate, the app draws a perturbed weight vector $\tilde{\theta}$ from a light posterior approximation and ranks by $x_{u,e}^{T}\tilde{\theta}$. High-scoring events go first, but uncertain yet plausible events still get a chance to appear.
 
-We chose this method because JoinIn has a changing event catalog, sparse feedback, and strict product rules. A contextual bandit fits well: each swipe is a single one-step decision, the candidate set turns over quickly, and a first deployment must stay interpretable and safe. The generic ranking step comes from the published Dart package \texttt{dart\_rl} version 1.0.0 \cite{dartRlPackage}; the app only adds JoinIn-specific features, priors, and logging.
+We chose this method because JoinIn has a changing event catalog, sparse feedback, and strict product rules. A contextual bandit fits well: each swipe is a single one-step decision, the candidate set turns over quickly, and a first deployment must stay interpretable and safe. Compared to deep policy-gradient methods, linear Thompson Sampling needs orders of magnitude fewer interactions to commit to a useful ranking, exposes weights that the product team can inspect, and ships in tens of kilobytes through Remote Config. The generic ranking step comes from the published Dart package \texttt{dart\_rl} version 1.0.0 \cite{dartRlPackage}; the app only adds JoinIn-specific features, priors, and logging.
 
 \begin{algorithm}[tb]
 \caption{Feed re-ranking with Contextual Thompson Sampling}
@@ -111,14 +123,19 @@ We chose this method because JoinIn has a changing event catalog, sparse feedbac
 \STATE {\bfseries Input:} user $u$, filtered events $E$
 \FOR{each event $e \in E$}
 \STATE Build feature vector $x_{u,e}$
-\STATE Sample weights $\tilde{\theta}$ around the current prior
+\STATE Sample weights $\tilde{\theta}$ around the current posterior
 \STATE Compute score $s_e = x_{u,e}^{T}\tilde{\theta}$
 \ENDFOR
 \STATE Sort events by $s_e$ descending
-\STATE Log one impression document per shown event
-\STATE On user action, log action and shaped reward
+\STATE On user action, observe shaped reward $r$
+\STATE Update posterior mean and per-feature variance with $(x_{u,e^*}, r)$
 \end{algorithmic}
 \end{algorithm}
+
+\section{Heuristic Baseline}
+The baseline reproduces the ordering JoinIn's Firestore query produced before this work: candidates that pass the hard filters are sorted strictly by ascending hours-until-event. We pick this rule on purpose rather than a uniform-random ordering because it is the rule the product actually shipped, it is what real users had been exposed to, and it already encodes a non-trivial inductive bias: events that start soon tend to be more salient and have higher attendance.
+
+Building the baseline this way matches the project specification's "educated guess" requirement: no learning, no exposure to rewards, but informed by the domain. It is also the right benchmark from a product standpoint, since any RL agent we deploy must beat the previous shipped behaviour, not a strawman. Implementation is a single sort and lives in \texttt{baseline.py}, which runs the same synthetic stream as \texttt{evaluate.py} and writes \texttt{results/baseline\_metrics.json}.
 
 \section{Implementation}
 \subsection{Codebase Integration}
@@ -198,15 +215,65 @@ static Future<void> logInteraction({
 }
 \end{lstlisting}
 
+\subsection{Training and Evaluation Scripts}
+The submission ships three Python entry points required by the project specification, all seeded with 0 and depending only on the standard library:
+\begin{itemize}\sloppy
+    \item \texttt{baseline.py} runs the chronological heuristic and writes \texttt{results/baseline\_metrics.json}.
+    \item \texttt{train.py} runs an online linear Thompson Sampling loop with SGD updates on the posterior mean and multiplicative shrinkage on the per-feature standard deviation, then saves \texttt{weights/cts\_weights.json} and the windowed learning curve as \texttt{results/learning\_curve.csv}.
+    \item \texttt{evaluate.py} reloads the trained weights, replays the same seeded stream, and writes \texttt{results/evaluation\_metrics.json}.
+\end{itemize}
+
 \section{Evaluation Plan and Results}
 We checked that the implementation builds: \texttt{flutter pub get} resolves the published \texttt{dart\_rl} 1.0.0 package from pub.dev, and the Flutter analyzer reports only pre-existing style hints in \texttt{home\_page.dart}, not type errors from the recommender.
 
-Because we do not change the Firebase server, evaluation runs through the local script \texttt{simulations/synthetic\_bandit\_simulation.py}. Training on real interactions would mean backend changes and a privacy-policy update, since we would collect and process new behavioral signals for personalization. That review takes longer than the class-project window, so we use synthetic data now and plan a privacy-reviewed release for Q4. The simulator creates 1{,}200 users with 30 candidate events each. Each policy shows the top five events per user, giving 6{,}000 impressions per policy. Users have a university and a preferred category; events have category, university, type, time, popularity, freshness, image availability, and report risk. A ground-truth utility function not exposed to the policy then picks each action using the same reward shaping as the app.
+Because we do not change the Firebase server, evaluation runs through the local Python scripts described above, all reseeded to 0 as required by the project specification. The simulator creates 1{,}200 users with 30 candidate events each. Each policy shows the top five events per user, giving 6{,}000 impressions per policy. Users have a university and a preferred category; events have category, university, type, time, popularity, freshness, image availability, and report risk. A ground-truth utility function not exposed to the policy then picks each action using the same reward shaping as the app. We measure agent quality with average reward per impression: it aggregates the full reward table of Section~2 into a single scalar and stays interpretable across windows.
 
-The baseline sorts candidates by earliest event time. The proposed method ranks the same candidates with Contextual Thompson Sampling. The run writes \texttt{results/synthetic\_metrics.json} and \texttt{results/synthetic\_interactions.csv}.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\scriptsize, xscale=0.855, yscale=0.855]
+% Plot box: 7.6cm x 4.2cm in raw coords; xscale shrinks to fit column
+\draw[gray!30] (0,0) grid[xstep=1.267,ystep=0.6] (7.6,4.2);
+\draw[->] (0,0) -- (7.8,0);
+\draw[->] (0,0) -- (0,4.4);
+\foreach \i/\lbl in {0/0, 1.267/1k, 2.533/2k, 3.800/3k, 5.067/4k, 6.333/5k, 7.600/6k} {
+  \draw (\i,0) -- (\i,-0.08);
+  \node[below] at (\i,-0.08) {\lbl};
+}
+\foreach \i/\lbl in {0/0.40, 0.6/0.45, 1.2/0.50, 1.8/0.55, 2.4/0.60, 3.0/0.65, 3.6/0.70, 4.2/0.75} {
+  \draw (0,\i) -- (-0.08,\i);
+  \node[left] at (-0.08,\i) {\lbl};
+}
+\node at (3.8,-0.55) {Impressions seen};
+\node[rotate=90] at (-0.85,2.1) {Mean reward (window=200)};
+\draw[red!70!black, dashed, very thick] (0,0.882) -- (7.6,0.882);
+\draw[blue!70!black, thick]
+  (0.253,2.658) -- (0.507,2.622) -- (0.760,2.994) -- (1.013,3.534) -- (1.267,3.024) --
+  (1.520,2.910) -- (1.773,1.968) -- (2.027,2.610) -- (2.280,2.646) -- (2.533,3.240) --
+  (2.787,3.072) -- (3.040,3.174) -- (3.293,3.108) -- (3.547,3.156) -- (3.800,3.174) --
+  (4.053,3.684) -- (4.307,2.910) -- (4.560,3.570) -- (4.813,2.760) -- (5.067,2.382) --
+  (5.320,3.042) -- (5.573,3.570) -- (5.827,2.646) -- (6.080,3.438) -- (6.333,2.844) --
+  (6.587,2.910) -- (6.840,3.042) -- (7.093,2.910) -- (7.347,2.346) -- (7.600,3.504);
+\foreach \pt in {%
+  (0.253,2.658),(0.507,2.622),(0.760,2.994),(1.013,3.534),(1.267,3.024),%
+  (1.520,2.910),(1.773,1.968),(2.027,2.610),(2.280,2.646),(2.533,3.240),%
+  (2.787,3.072),(3.040,3.174),(3.293,3.108),(3.547,3.156),(3.800,3.174),%
+  (4.053,3.684),(4.307,2.910),(4.560,3.570),(4.813,2.760),(5.067,2.382),%
+  (5.320,3.042),(5.573,3.570),(5.827,2.646),(6.080,3.438),(6.333,2.844),%
+  (6.587,2.910),(6.840,3.042),(7.093,2.910),(7.347,2.346),(7.600,3.504)} {
+  \filldraw[blue!70!black] \pt circle (1.1pt);
+}
+\draw[blue!70!black, thick] (4.2,3.95) -- (4.6,3.95);
+\filldraw[blue!70!black] (4.4,3.95) circle (1.1pt);
+\node[right] at (4.6,3.95) {CTS (online)};
+\draw[red!70!black, dashed, very thick] (4.2,3.65) -- (4.6,3.65);
+\node[right] at (4.6,3.65) {Baseline (0.474)};
+\end{tikzpicture}
+\caption{Online learning curve: windowed (200-impression) mean reward of CTS during training compared with the chronological baseline (horizontal line). The bandit overtakes the baseline within the first 200 impressions and stabilises around 0.65.}
+\label{fig:learning_curve}
+\end{figure}
 
 \begin{table}[t]
-\caption{Synthetic simulation results. Each policy is evaluated on 6,000 impressions. Delta is CTS minus baseline.}
+\caption{Synthetic simulation results with fixed seed 0. Each policy is evaluated on 6,000 impressions. Delta is CTS (frozen weights) minus baseline.}
 \label{tab:results}
 \vskip 0.1in
 \begin{center}
@@ -215,10 +282,10 @@ The baseline sorts candidates by earliest event time. The proposed method ranks 
 \toprule
 Metric & Baseline & CTS & Delta \\
 \midrule
-Join rate & 40.97\% & 58.10\% & +17.13 pp \\
-Request rate & 15.43\% & 10.95\% & -4.48 pp \\
-Pass rate & 43.60\% & 30.95\% & -12.65 pp \\
-Avg. reward/impression & 0.474 & 0.627 & +0.153 \\
+Join rate & 41.53\% & 68.52\% & +26.98 pp \\
+Request rate & 14.58\% & 0.03\% & -14.55 pp \\
+Pass rate & 43.88\% & 31.45\% & -12.43 pp \\
+Avg. reward/impression & 0.474 & 0.654 & +0.180 \\
 \bottomrule
 \end{tabular}
 \end{small}
@@ -226,10 +293,15 @@ Avg. reward/impression & 0.474 & 0.627 & +0.153 \\
 \vskip -0.1in
 \end{table}
 
-The bandit policy raises the join rate and the average reward and lowers the pass rate. The request rate drops because the learned ranking favors free-to-join events, which carry the strongest positive reward in the synthetic user model. That is fine for a first version, since a direct join is the best outcome, but a production system should watch that request-to-join events do not become under-exposed.
+\section{Discussion}
+The learning curve in Figure~\ref{fig:learning_curve} answers the project specification's "learning over time" requirement directly: the baseline is a flat reference at 0.474, and the bandit's windowed reward climbs above it within the first window of 200 impressions and stabilises near 0.65. The variance across windows is the residual exploration noise that the diagonal posterior never collapses entirely, which is intentional: any production version of the agent must keep some uncertainty to cope with the JoinIn catalog turning over weekly.
+
+Table~\ref{tab:results} shows the trained policy lifts the average reward by +0.180 per impression (+38\%) and the join rate by +27 percentage points relative to the heuristic. The drop in request rate is the dominant side-effect: once the posterior commits, free-to-join events crowd out request-to-join events because the former carries a +1.0 reward versus +0.7. The bandit is therefore behaving rationally given the reward shaping, but the result also exposes a real product question — whether to re-balance the reward table, add a per-type fairness constraint, or expose request-to-join events under a separate budget. We surface this as an issue rather than a bug.
+
+The RL agent beats the heuristic for two reasons that go beyond raw averages: it personalises (the same event is ranked differently for two users depending on \texttt{same\_university} and \texttt{category\_profile\_match}), and it adapts (the SGD update on the posterior mean lets it correct miscalibrated priors without a redeploy). The heuristic does neither. Possible improvements include: (i) a full Bayesian linear regression with a precision-matrix posterior instead of the diagonal SGD approximation, (ii) a position-aware reward that discounts cards further down the stack, (iii) a per-arm fairness constraint to protect request-to-join exposure, and (iv) lightweight non-linear features (e.g., category $\times$ time-of-day cross-terms) before moving to a neural ranker.
 
 \section{Limitations and Next Steps}
-The current model uses a fixed prior and on-device random exploration. This is safe for a first deployment and fits a class project that avoids server changes, but it does not yet update the posterior from real user rewards. The synthetic simulator checks the mechanics and the reward design; it cannot prove a production lift. The Q4 release should: update the privacy policy and backend data contract; add an opt-in analytics pipeline; estimate $\theta$ from real past interactions; and ship updated weights through Remote Config or a server endpoint. It should also model slate effects and position bias, since an event's reward depends on where it sits in the stack.
+The current model uses a diagonal posterior and SGD updates rather than the full Bayesian linear regression in Algorithm~\ref{alg:cts}. This is safe for a first deployment and fits a class project that avoids server changes, but it leaves correlation structure between features on the table. The synthetic simulator checks the mechanics and the reward design; it cannot prove a production lift because the user model is itself a linear function of the same features the policy sees. The Q4 release should: update the privacy policy and backend data contract; add an opt-in analytics pipeline; estimate $\theta$ from real past interactions; ship updated weights through Remote Config or a server endpoint; and model slate effects and position bias.
 
 \bibliography{main}
 \bibliographystyle{icml2021}
