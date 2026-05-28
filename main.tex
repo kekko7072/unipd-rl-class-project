@@ -39,9 +39,13 @@
 \icmltitle{Contextual Bandit Event Recommendation for JoinIn}
 
 \begin{icmlauthorlist}
-\icmlauthor{Marco Carraro}{}
-\icmlauthor{Francesco Vezzani}{}
+\icmlauthor{Marco Carraro}{unipd}
+\icmlauthor{Francesco Vezzani}{unipd}
 \end{icmlauthorlist}
+
+\icmlaffiliation{unipd}{University of Padua, Padua, Italy}
+
+\icmlcorrespondingauthor{Francesco Vezzani}{francesco.vezzani@studenti.unipd.it}
 
 \icmlkeywords{Reinforcement Learning, Contextual Bandits, Event Recommendation, Flutter, Firebase}
 
@@ -57,7 +61,7 @@ We build a reinforcement-learning event recommender for JoinIn, a Flutter/Fireba
 \section{Goal and Setting}
 JoinIn shows each user a short feed of candidate activities. Before this work, the feed was sorted mainly by event time, after dropping events that were expired, full, reported, owned by the user, or already joined. Our goal is to turn this fixed order into a learning recommender: one that favors events the user is likely to enjoy while still exploring uncertain ones.
 
-We add the recommender as a re-ranking layer only. Firestore still retrieves the safe candidates, and the bandit just reorders the current slate. This keeps product risk low, because it never bypasses the existing business rules, moderation filters, or capacity limits.
+Because real user interactions cannot be collected within the class-project window, we evaluate the recommender entirely on synthetic data. A local simulator generates users, events, and contextual signals that mirror the structure of the JoinIn feed, and a ground-truth utility function not exposed to the policy assigns actions to impressions using the same reward shaping the deployed app would log. This lets us exercise the full pipeline (feature extraction, ranking, reward mapping) without touching the Firebase backend or collecting new behavioral data from real students.
 
 \section{RL Formulation}
 At each step the app sees a user $u$ and a candidate event $e$ that passed the filter. We describe the pair with a context vector
@@ -98,7 +102,7 @@ We use Contextual Thompson Sampling with a linear reward model \cite{agrawal2013
 \]
 For each candidate, the app draws a perturbed weight vector $\tilde{\theta}$ from a light posterior approximation and ranks by $x_{u,e}^{T}\tilde{\theta}$. High-scoring events go first, but uncertain yet plausible events still get a chance to appear.
 
-We prefer this over a deep RL method because JoinIn has a changing event catalog, sparse feedback, and strict product rules. A contextual bandit fits well: each swipe is a single one-step decision, the candidate set turns over quickly, and a first deployment must stay interpretable and safe. The generic ranking step comes from the published Dart package \texttt{dart\_rl} version 1.0.0 \cite{dartRlPackage}; the app only adds JoinIn-specific features, priors, and logging.
+We chose this method because JoinIn has a changing event catalog, sparse feedback, and strict product rules. A contextual bandit fits well: each swipe is a single one-step decision, the candidate set turns over quickly, and a first deployment must stay interpretable and safe. The generic ranking step comes from the published Dart package \texttt{dart\_rl} version 1.0.0 \cite{dartRlPackage}; the app only adds JoinIn-specific features, priors, and logging.
 
 \begin{algorithm}[tb]
 \caption{Feed re-ranking with Contextual Thompson Sampling}
@@ -121,7 +125,7 @@ We prefer this over a deep RL method because JoinIn has a changing event catalog
 We take the reusable linear Thompson Sampling code from the published \texttt{dart\_rl} package and keep all product-specific logic in JoinIn:
 \begin{itemize}
     \item \textbf{Dependency}: \texttt{pubspec.yaml} adds \texttt{dart\_rl: \^{}1.0.0}.
-    \item \textbf{Reusable package}: \texttt{dart\_rl} provides \texttt{LinearThompsonSampling}, \texttt{ContextualBanditArm}, and \texttt{ContextualBanditRanking}.
+    \item \textbf{Reusable package}: \texttt{dart\_rl} provides the linear Thompson Sampling sampler, bandit-arm wrapper, and ranking helper used by the service.
     \item \textbf{Recommendation service}: feature extraction, prior weights, reward mapping, and logging hooks for the local simulator.
     \item \textbf{Home feed}: runs the re-ranker after candidate retrieval and records feed interactions.
 \end{itemize}
@@ -197,7 +201,7 @@ static Future<void> logInteraction({
 \section{Evaluation Plan and Results}
 We checked that the implementation builds: \texttt{flutter pub get} resolves the published \texttt{dart\_rl} 1.0.0 package from pub.dev, and the Flutter analyzer reports only pre-existing style hints in \texttt{home\_page.dart}, not type errors from the recommender.
 
-Because we do not change the Firebase server, evaluation runs through the local script \texttt{simulations/synthetic\_bandit\_simulation.py}. Training on real interactions would mean backend changes and a privacy-policy update, since we would collect and process new behavioral signals for personalization. That review takes longer than the class-project window, so we use synthetic data now and plan a privacy-reviewed release for Q4. The simulator creates 1{,}200 users with 30 candidate events each. Each policy shows the top five events per user, giving 6{,}000 impressions per policy. Users have a university and a preferred category; events have category, university, type, time, popularity, freshness, image availability, and report risk. A hidden reward model then picks each action using the same reward shaping as the app.
+Because we do not change the Firebase server, evaluation runs through the local script \texttt{simulations/synthetic\_bandit\_simulation.py}. Training on real interactions would mean backend changes and a privacy-policy update, since we would collect and process new behavioral signals for personalization. That review takes longer than the class-project window, so we use synthetic data now and plan a privacy-reviewed release for Q4. The simulator creates 1{,}200 users with 30 candidate events each. Each policy shows the top five events per user, giving 6{,}000 impressions per policy. Users have a university and a preferred category; events have category, university, type, time, popularity, freshness, image availability, and report risk. A ground-truth utility function not exposed to the policy then picks each action using the same reward shaping as the app.
 
 The baseline sorts candidates by earliest event time. The proposed method ranks the same candidates with Contextual Thompson Sampling. The run writes \texttt{results/synthetic\_metrics.json} and \texttt{results/synthetic\_interactions.csv}.
 

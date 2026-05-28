@@ -1,0 +1,10 @@
+{
+  "policy": "Contextual Thompson Sampling (frozen weights)",
+  "seed": 0,
+  "training_seed": 0,
+  "impressions": 6000,
+  "join_rate": 0.6851666666666667,
+  "request_rate": 0.0003333333333333333,
+  "pass_rate": 0.3145,
+  "avg_reward_per_impression": 0.6539500000000196
+}

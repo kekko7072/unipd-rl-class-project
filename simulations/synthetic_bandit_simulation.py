@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-SEED = 7072
+SEED = 0
 NUM_USERS = 1200
 EVENTS_PER_USER = 30
 SLATE_SIZE = 5

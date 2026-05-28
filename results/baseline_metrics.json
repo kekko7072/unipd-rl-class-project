@@ -1,0 +1,9 @@
+{
+  "policy": "Chronological baseline",
+  "seed": 0,
+  "impressions": 6000,
+  "join_rate": 0.41533333333333333,
+  "request_rate": 0.14583333333333334,
+  "pass_rate": 0.43883333333333335,
+  "avg_reward_per_impression": 0.47353333333335246
+}

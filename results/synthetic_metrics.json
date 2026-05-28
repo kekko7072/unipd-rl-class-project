@@ -2,17 +2,17 @@
   {
     "policy": "Chronological baseline",
     "impressions": 6000,
-    "join_rate": 0.4096666666666667,
-    "request_rate": 0.15433333333333332,
-    "pass_rate": 0.436,
-    "avg_reward_per_impression": 0.47410000000002
+    "join_rate": 0.41533333333333333,
+    "request_rate": 0.14583333333333334,
+    "pass_rate": 0.43883333333333335,
+    "avg_reward_per_impression": 0.47353333333335246
   },
   {
     "policy": "Contextual Thompson Sampling",
     "impressions": 6000,
-    "join_rate": 0.581,
-    "request_rate": 0.1095,
-    "pass_rate": 0.3095,
-    "avg_reward_per_impression": 0.6267000000000121
+    "join_rate": 0.5791666666666667,
+    "request_rate": 0.10833333333333334,
+    "pass_rate": 0.3125,
+    "avg_reward_per_impression": 0.6237500000000118
   }
 ]

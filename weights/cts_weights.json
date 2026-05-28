@@ -1,0 +1,42 @@
+{
+  "seed": 0,
+  "weights": {
+    "bias": -0.17293432438042472,
+    "same_university": 0.13345364968194318,
+    "free_to_join": 0.34535110904488336,
+    "request_to_join": -0.2882854334253091,
+    "starts_soon": 0.2338598761129018,
+    "evening_event": 0.00836303361273328,
+    "weekend_event": 0.15884627501411266,
+    "attendee_ratio": -0.02498677873136383,
+    "waiting_ratio": -0.15317823675999762,
+    "has_image": 0.0971936618992747,
+    "fresh_event": -0.07437264016695368,
+    "category_profile_match": 0.4171883360354397,
+    "report_penalty": -0.4356825451911244
+  },
+  "stds": {
+    "bias": 0.005,
+    "same_university": 0.005,
+    "free_to_join": 0.005,
+    "request_to_join": 0.041502075837633545,
+    "starts_soon": 0.005,
+    "evening_event": 0.005,
+    "weekend_event": 0.005,
+    "attendee_ratio": 0.005,
+    "waiting_ratio": 0.005,
+    "has_image": 0.005,
+    "fresh_event": 0.005,
+    "category_profile_match": 0.005,
+    "report_penalty": 0.005
+  },
+  "metrics": {
+    "policy": "Contextual Thompson Sampling (online)",
+    "seed": 0,
+    "impressions": 6000,
+    "join_rate": 0.6753333333333333,
+    "request_rate": 0.007,
+    "pass_rate": 0.31766666666666665,
+    "avg_reward_per_impression": 0.6484666666666861
+  }
+}

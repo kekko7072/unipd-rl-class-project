@@ -1,0 +1,9 @@
+{
+  "policy": "Contextual Thompson Sampling (online)",
+  "seed": 0,
+  "impressions": 6000,
+  "join_rate": 0.6753333333333333,
+  "request_rate": 0.007,
+  "pass_rate": 0.31766666666666665,
+  "avg_reward_per_impression": 0.6484666666666861
+}
