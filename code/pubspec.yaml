@@ -1,0 +1,157 @@
+name: spotted
+description: A new Flutter project.
+
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+version: 1.0.28+44
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_localizations:
+    sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  async: ^2.11.0
+  cupertino_icons: ^1.0.2
+  google_fonts: ^5.1.0
+  flutter_slidable: ^3.1.1
+  firebase_core: ^2.15.1
+  cloud_firestore: ^4.9.1
+  cloud_functions: ^4.4.0
+  firebase_auth: ^4.9.0
+  firebase_storage: ^11.2.6
+  image_picker: ^1.0.4
+  uuid: ^4.0.0
+  intl: ^0.19.0
+  posthog_flutter: ^4.10.8
+  firebase_remote_config: ^4.3.5
+  package_info_plus: ^8.0.2
+  version: ^2.0.0
+  badges: ^3.1.2
+
+  #http: ^1.1.0  # Added for testing PostHog API
+
+  geolocator: ^10.0.1
+  swipe_cards: ^2.0.0+1
+  font_awesome_flutter: ^10.7.0
+  webview_flutter: ^4.8.0
+  url_launcher: ^6.2.5
+  #video_player: ^2.9.2
+
+  flutter_riverpod: ^2.3.7
+  shared_preferences: ^2.0.0
+  firebase_messaging: ^14.8.2
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.2
+  flutter_svg: ^2.0.10+1
+  flutter_native_splash: ^2.4.0
+  permission_handler: ^12.0.1
+  country_flags: ^3.2.0
+  flutter_linkify: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+  firebase_crashlytics: ^3.3.5 #firebase crashlytics
+  firebase_analytics: ^10.4.5 #firebase analytics
+  firebase_performance: ^0.9.2+5
+  cached_network_image: ^3.4.0
+  image: ^4.5.4
+  flutter_image_compress: ^2.3.0
+  image_cropper: ^11.0.0
+  path_provider: ^2.1.4
+  share_plus: ^10.0.0
+  app_links: ^6.4.0
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  scroll_to_index: ^3.0.1
+  firebase_app_check: ^0.2.2+7
+  in_app_review: ^2.0.10
+  flutter_dotenv: ^6.0.0
+  dart_rl: ^1.0.0
+
+
+dependency_overrides:
+  posthog_flutter: ^5.8.0
+  intl: ^0.18.1
+  stack_trace: ^1.12.0
+  win32: ^5.15.0
+
+dev_dependencies:
+  change_app_package_name: ^1.1.0
+  build_runner: ^2.4.9
+  isar_generator: ^3.1.0+1
+
+
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^2.0.0
+
+flutter:
+  generate: true
+  uses-material-design: true
+
+  assets:
+    - .env
+    - assets/
+    - assets/icons/
+    - assets/icons/lightMode/
+    - assets/icons/darkMode/
+    - assets/images/
+    - assets/images/lightMode/
+    - assets/images/darkMode/
+    - assets/logos/
+    - assets/logos/lightMode/
+    - assets/logos/darkMode/
+    - assets/category_events_images/
+    - assets/category_events_images/academic_learning/
+    - assets/category_events_images/arts_culture/
+    - assets/category_events_images/food_drinks/
+    - assets/category_events_images/other_activities/
+    - assets/category_events_images/social_fun/
+    - assets/category_events_images/sports_outdoor/
+    - assets/category_events_images/travel_adventure/
+    - assets/home_page/
+    - assets/chats_page/
+    - assets/stickers/
+    - assets/firebase/dev/
+    - assets/firebase/prod/
+
+
+flutter_native_splash:
+  android: true
+  ios: true
+  # percorso immagine splash light/dark
+  background_image: "assets/images/lightMode/splash_light_mode.png"
+  background_image_dark: "assets/images/darkMode/splash_dark_mode.png"
+
+  # opzioni addizionali (facoltative)
+  background_color: "#FFFFFF"
+
+  android_12:
+    # immagine icona per Android 12 splash
+    image: "assets/icons/lightMode/icon_light_mode.png"
+    color: "#FFFBFF"
+    color_dark: "#1E1A1D"

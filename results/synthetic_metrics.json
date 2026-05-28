@@ -1,0 +1,18 @@
+[
+  {
+    "policy": "Chronological baseline",
+    "impressions": 6000,
+    "join_rate": 0.4096666666666667,
+    "request_rate": 0.15433333333333332,
+    "pass_rate": 0.436,
+    "avg_reward_per_impression": 0.47410000000002
+  },
+  {
+    "policy": "Contextual Thompson Sampling",
+    "impressions": 6000,
+    "join_rate": 0.581,
+    "request_rate": 0.1095,
+    "pass_rate": 0.3095,
+    "avg_reward_per_impression": 0.6267000000000121
+  }
+]
